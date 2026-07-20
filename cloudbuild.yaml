@@ -1,6 +1,7 @@
 options:
   logging: CLOUD_LOGGING_ONLY
 
+
 steps:
 
 #######################################################
@@ -12,20 +13,31 @@ steps:
   entrypoint: bash
 
   args:
+
     - -c
+
     - |
-      echo "Checking cache..."
+
+      echo "Checking Cloud Storage cache..."
 
       mkdir -p /workspace/cache
 
-      gsutil cp gs://TU_BUCKET_CACHE/ubuntu-cloud.img /workspace/cache/ || true
+
+      gsutil cp gs://$_CACHE_BUCKET/ubuntu-cloud.img /workspace/cache/ || true
+
 
       if [ -f /workspace/cache/ubuntu-cloud.img ]; then
-        echo "Cache restored successfully"
+
+        echo "Cache found. Restoring artifact..."
+
         cp /workspace/cache/ubuntu-cloud.img .
+
       else
-        echo "No cache found"
+
+        echo "No cache available."
+
       fi
+
 
 
 #######################################################
@@ -44,7 +56,7 @@ steps:
 
       if [ -f ubuntu-cloud.img ]; then
 
-        echo "Using cached dependency"
+        echo "Using cached dependency."
 
       else
 
@@ -54,14 +66,17 @@ steps:
 
         apt-get install -y wget
 
+
         wget -O ubuntu-cloud.img \
         https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img
+
 
       fi
 
 
+
 #######################################################
-# SAVE CACHE TO CLOUD STORAGE
+# UPDATE CACHE
 #######################################################
 
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -74,13 +89,14 @@ steps:
 
     - |
 
-      echo "Uploading cache..."
+      echo "Uploading artifact to Cloud Storage cache..."
 
-      gsutil cp ubuntu-cloud.img gs://TU_BUCKET_CACHE/ubuntu-cloud.img
+      gsutil cp ubuntu-cloud.img gs://$_CACHE_BUCKET/ubuntu-cloud.img
+
 
 
 #######################################################
-# BUILD IMAGE
+# BUILD CONTAINER IMAGE
 #######################################################
 
 - name: 'gcr.io/cloud-builders/docker'
@@ -91,9 +107,10 @@ steps:
 
     - -t
 
-    - europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
+    - europe-west1-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE:latest
 
     - .
+
 
 
 #######################################################
@@ -106,9 +123,14 @@ steps:
 
     - push
 
-    - europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
+    - europe-west1-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE:latest
 
+
+
+#######################################################
+# OUTPUT IMAGE
+#######################################################
 
 images:
 
-- europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
+- europe-west1-docker.pkg.dev/$PROJECT_ID/$_REPOSITORY/$_IMAGE:latest
