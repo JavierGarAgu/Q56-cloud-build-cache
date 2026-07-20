@@ -3,37 +3,111 @@ options:
 
 steps:
 
-# Simulate downloading large dependencies
-- name: 'ubuntu:24.04'
+#######################################################
+# RESTORE CACHE FROM CLOUD STORAGE
+#######################################################
+
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
 
   entrypoint: bash
 
   args:
     - -c
     - |
-      apt-get update
-      apt-get install -y wget
+      echo "Checking cache..."
 
-      echo "Downloading a large dependency..."
+      mkdir -p /workspace/cache
 
-      wget -O ubuntu-cloud.img \
-      https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img
+      gsutil cp gs://TU_BUCKET_CACHE/ubuntu-cloud.img /workspace/cache/ || true
 
-# Build Docker image
+      if [ -f /workspace/cache/ubuntu-cloud.img ]; then
+        echo "Cache restored successfully"
+        cp /workspace/cache/ubuntu-cloud.img .
+      else
+        echo "No cache found"
+      fi
+
+
+#######################################################
+# DOWNLOAD DEPENDENCY IF CACHE DOES NOT EXIST
+#######################################################
+
+- name: 'ubuntu:24.04'
+
+  entrypoint: bash
+
+  args:
+
+    - -c
+
+    - |
+
+      if [ -f ubuntu-cloud.img ]; then
+
+        echo "Using cached dependency"
+
+      else
+
+        echo "Downloading large dependency..."
+
+        apt-get update
+
+        apt-get install -y wget
+
+        wget -O ubuntu-cloud.img \
+        https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img
+
+      fi
+
+
+#######################################################
+# SAVE CACHE TO CLOUD STORAGE
+#######################################################
+
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+
+  entrypoint: bash
+
+  args:
+
+    - -c
+
+    - |
+
+      echo "Uploading cache..."
+
+      gsutil cp ubuntu-cloud.img gs://TU_BUCKET_CACHE/ubuntu-cloud.img
+
+
+#######################################################
+# BUILD IMAGE
+#######################################################
+
 - name: 'gcr.io/cloud-builders/docker'
 
   args:
+
     - build
+
     - -t
+
     - europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
+
     - .
 
-# Push image
+
+#######################################################
+# PUSH IMAGE
+#######################################################
+
 - name: 'gcr.io/cloud-builders/docker'
 
   args:
+
     - push
+
     - europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
+
 
 images:
 
