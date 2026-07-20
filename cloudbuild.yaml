@@ -1,0 +1,40 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+
+# Simulate downloading large dependencies
+- name: 'ubuntu:24.04'
+
+  entrypoint: bash
+
+  args:
+    - -c
+    - |
+      apt-get update
+      apt-get install -y wget
+
+      echo "Downloading a large dependency..."
+
+      wget -O ubuntu-cloud.img \
+      https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img
+
+# Build Docker image
+- name: 'gcr.io/cloud-builders/docker'
+
+  args:
+    - build
+    - -t
+    - europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
+    - .
+
+# Push image
+- name: 'gcr.io/cloud-builders/docker'
+
+  args:
+    - push
+    - europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
+
+images:
+
+- europe-west1-docker.pkg.dev/$PROJECT_ID/secure-images/cloud-build-cache:latest
